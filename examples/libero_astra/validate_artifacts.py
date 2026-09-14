@@ -25,6 +25,13 @@ def validate(folder):
         np.testing.assert_array_equal(
             states[0], np.load(Path(result["continued_from"]) / "sim_states.npz")["states"][-1]
         )
+    if result.get("comparison_reference"):
+        np.testing.assert_allclose(
+            states[0],
+            np.load(Path(result["comparison_reference"]) / "sim_states.npz")["states"][0],
+            rtol=0,
+            atol=1e-10,
+        )
     assert len(decisions) == result["decisions"]
     assert len(actions) == result["control_steps"]
     assert len(obs) == len(states) == len(actions) + 1
@@ -64,10 +71,10 @@ def validate(folder):
             assert (folder / "frames" / f"{i:06d}_{camera}.png").stat().st_size > 100
     total = dict.fromkeys(["input_tokens", "output_tokens", "total_tokens"], 0)
     for w in wire:
-        assert w["request"]["model"] == "gpt-6-astra"
+        assert w["request"]["model"] == result["model"]
         response = w.get("response") or {}
         if w["status"] == 200:
-            assert response["model"].startswith("gpt-6-astra")
+            assert response["model"].startswith(result["model"])
         for key in total:
             total[key] += (response.get("usage") or {}).get(key, 0)
         for blob in set(re.findall(r"\$blob:([0-9a-f]{64})", json.dumps(w["request"]))):

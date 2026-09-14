@@ -1,9 +1,15 @@
-# GPT-6-astra + LIBERO
+# Vision-language models + LIBERO
 
-Runs GPT-6-astra as the sole task planner for a simulated Panda arm. Each API
+Runs GPT-6-astra (default) or a selected model as the sole task planner for a simulated Panda arm. Each API
 decision sees external, wrist, and overhead RGB images, robot proprioception,
 and an overhead table-plane calibration grid. No object poses, hidden goal
 regions, learned robot policy, or demonstration trajectories are supplied.
+
+This is a custom LIBERO demo added in this fork. Its system prompt, including
+generic pick-and-place advice, and calibrated overhead grid were written for
+this experiment. They are not copied from the upstream real-robot experiments.
+Astra and Luna receive the same prompt and grid, but these runs do not reproduce
+Robocurve's YAM setup.
 
 `move_to` requests an absolute grasp-center XYZ, relative world-Z yaw, gripper
 command, and maximum duration. A generic feedback loop compares the current
@@ -46,6 +52,37 @@ interactive shell. The runner does not save authorization headers or the key.
 Open `artifacts/astra_libero/index.html`. HTML embeds the data and works directly
 from a local file; keep the adjacent videos and frames in their directories.
 Use `--attempt 1` for another attempt. Existing attempts are never overwritten.
+
+Compare GPT-5.6 Luna using the same prompt, tools, medium reasoning, seed,
+initial state, and control budgets. The reference check rejects a mismatched
+initial simulator state before the first API call:
+
+```bash
+bash examples/libero_astra/env.sh examples/libero_astra/run.py \
+  --model gpt-5.6-luna --tasks 5 6 8 \
+  --reference-root artifacts/astra_libero --output artifacts/luna_libero
+bash examples/libero_astra/env.sh examples/libero_astra/build_report.py \
+  --root artifacts/luna_libero
+```
+
+`render_captioned_video.py --task-dir <attempt-folder>` renders saved frames
+with the task goal, all tool arguments, public notes, target and measured yaw,
+API latency, token usage, estimated cumulative cost, and the native result.
+Pricing uses each model's documented standard rates, including cache writes.
+The renderer uses existing logs and does not make API requests.
+
+After rendering the three captioned videos for each model, build the comparison:
+
+```bash
+bash examples/libero_astra/env.sh examples/libero_astra/compare_models.py
+```
+
+`artifacts/libero_model_comparison/index.html` embeds all six videos and their
+call records, so it can be downloaded and opened by itself. It compares native
+success, wall time, API latency, tokens, and estimated cost; finishing phases
+are excluded from the default totals and can be included with a checkbox.
+Adjacent JSON and CSV files contain the comparison data. The builder also
+checks initial states, camera images, prompts, tools, and first API requests.
 
 If native success occurs before the model releases an object, a separate
 finishing phase can restore the last saved MuJoCo state and let GPT release

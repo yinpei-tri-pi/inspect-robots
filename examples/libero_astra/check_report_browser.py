@@ -2,12 +2,17 @@
 # ruff: noqa: E501
 """Exercise the offline HTML controls, media, and responsive layout."""
 
+import argparse
 import json
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-root = Path(__file__).resolve().parents[2] / "artifacts/astra_libero"
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument(
+    "--root", type=Path, default=Path(__file__).resolve().parents[2] / "artifacts/astra_libero"
+)
+root = parser.parse_args().root.resolve()
 checks = []
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True, args=["--no-sandbox"])

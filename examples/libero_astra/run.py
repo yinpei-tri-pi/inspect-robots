@@ -1,6 +1,6 @@
 # Keep model prompts and tool descriptions unchanged.
 # ruff: noqa: E501
-"""GPT-6 Astra controls LIBERO's Panda through generic Cartesian pose primitives.
+"""A vision-language model controls LIBERO's Panda through Cartesian pose primitives.
 
 The model sees RGB images, robot proprioception, and camera calibration aids.
 No object poses, goal-region coordinates, demonstrations, or trained robot policy
@@ -199,7 +199,7 @@ def run_task(args, task_id):
         Provider(
             base_url="https://api.openai.com/v1",
             api_key=os.environ["OPENAI_API_KEY"],
-            model="gpt-6-astra",
+            model=args.model,
         ),
         capture=capture,
     )
@@ -214,7 +214,7 @@ def run_task(args, task_id):
         "attempt": args.attempt,
         "init_state_index": args.init_state,
         "seed": args.seed,
-        "model": "gpt-6-astra",
+        "model": args.model,
         "reasoning_effort": "medium",
         "observability": "RGB + robot proprioception + calibrated table-plane grid; no object poses or goal-region coordinates",
         "controller": "robosuite OSC_POSE with generic Cartesian target tracking",
@@ -303,6 +303,15 @@ def run_task(args, task_id):
         meta["controller_output_max"] = env.robots[0].controller.output_max.tolist()
         assert np.allclose(env.robots[0].controller.output_max, [0.05, 0.05, 0.05, 0.5, 0.5, 0.5])
         meta["warmup_steps"] = warmup_count
+        if args.reference_root and not continuation:
+            reference = Path(args.reference_root) / f"task_{task_id:02d}_attempt_{args.attempt:02d}"
+            expected = np.load(reference / "sim_states.npz")["states"][0]
+            np.testing.assert_allclose(env.get_sim_state(), expected, rtol=0, atol=1e-10)
+            meta["comparison_reference"] = str(reference.resolve())
+            meta["initial_state_matches_reference"] = True
+            meta["initial_state_max_absolute_difference"] = float(
+                np.max(np.abs(env.get_sim_state() - expected))
+            )
         meta["camera_calibration"] = {
             name: {
                 "position": env.sim.data.cam_xpos[env.sim.model.camera_name2id(name)].tolist(),
@@ -607,6 +616,11 @@ def run_task(args, task_id):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--tasks", type=int, nargs="+", default=[5, 6, 8])
+    parser.add_argument("--model", default="gpt-6-astra")
+    parser.add_argument(
+        "--reference-root",
+        help="Verify each initial simulator state against a saved comparison run before requesting the model.",
+    )
     parser.add_argument("--suite", default="libero_goal")
     parser.add_argument("--attempt", type=int, default=0)
     parser.add_argument("--init-state", type=int, default=0)
